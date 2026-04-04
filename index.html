@@ -5,42 +5,23 @@
 <title>Scratch雑談SNS</title>
 
 <style>
-body {
-  margin:0;
-  font-family:Arial;
-  background:#f7f7f7;
-}
+body { margin:0; font-family:Arial; background:#f7f7f7; }
 
-/* 上バー（Scratch風） */
+/* 上バー */
 .topbar {
   background:#ffab19;
-  padding:10px 15px;
+  padding:10px;
   display:flex;
   justify-content:space-between;
   align-items:center;
 }
 
-.topbar h2 {
-  margin:0;
-  font-size:18px;
-}
-
-/* 右上UI */
-.user-mini {
-  font-size:12px;
-}
-
-.user-mini input {
-  width:100px;
-}
-
-/* メイン */
 .container {
   max-width:600px;
   margin:20px auto;
 }
 
-/* 投稿ボックス */
+/* 投稿欄 */
 .post-box {
   background:white;
   padding:10px;
@@ -50,7 +31,6 @@ body {
 textarea {
   width:100%;
   height:70px;
-  padding:8px;
 }
 
 /* 投稿 */
@@ -61,17 +41,10 @@ textarea {
   border-radius:8px;
 }
 
-.small {
-  font-size:12px;
-  color:gray;
-}
+.small { font-size:12px; color:gray; }
 
-button {
-  cursor:pointer;
-  margin-top:5px;
-}
+button { cursor:pointer; margin-top:5px; }
 
-/* 通知 */
 #toast {
   position:fixed;
   top:20px;
@@ -90,8 +63,7 @@ button {
 <div class="topbar">
   <h2>雑談所</h2>
 
-  <!-- 🔥 右上ログイン -->
-  <div class="user-mini" id="userArea">
+  <div id="userArea">
     <input id="username" placeholder="ユーザー名">
     <button onclick="login()">OK</button>
   </div>
@@ -118,16 +90,22 @@ import {
   onSnapshot, orderBy, updateDoc, doc, deleteDoc 
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
-const app = initializeApp({
-  apiKey:"AIzaSyCAX28P2QGaNNp6xytLsE9hhcVher9TgPY",
-  authDomain:"scratch-sns.firebaseapp.com",
-  projectId:"scratch-sns"
-});
+/* 🔥 ここを自分のにする */
+const firebaseConfig = {
+  apiKey: "AIzaSyCAX28P2QGaNNp6xytLsE9hhcVher9TgPY",
+  authDomain: "scratch-sns.firebaseapp.com",
+  projectId: "scratch-sns",
+  storageBucket: "scratch-sns.firebasestorage.app",
+  messagingSenderId: "414045447005",
+  appId: "1:414045447005:web:f4710d0a90a43745fcbeb4"
+};
 
+const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+
 let currentUser = localStorage.getItem("username") || null;
 
-// 🔔 通知
+// 通知
 function toast(msg){
   const t=document.getElementById("toast");
   t.textContent=msg;
@@ -135,15 +113,16 @@ function toast(msg){
   setTimeout(()=>t.style.opacity=0,1000);
 }
 
-// 🔢 文字数
+// 文字数
 const msgBox=document.getElementById("msg");
 msgBox.addEventListener("input",()=>{
   document.getElementById("count").textContent="残り"+(150-msgBox.value.length)+"文字";
 });
 
-// 👤 ログイン（登録兼用）
+// ログイン
 window.login = async ()=>{
   const name = document.getElementById("username").value;
+
   if(!name){ toast("名前入力して"); return;}
 
   const q = query(collection(db,"users"), where("username","==",name));
@@ -198,23 +177,26 @@ window.post = async ()=>{
   document.getElementById("count").textContent="残り150文字";
 };
 
-// 👍 いいね（トグル）
+// いいね
 window.like = async (id, likes)=>{
   if(!currentUser){ toast("ログインして"); return;}
 
   let newLikes = likes || [];
 
   if(newLikes.includes(currentUser)){
-    // 解除
     newLikes = newLikes.filter(u => u !== currentUser);
   } else {
-    // 追加
     newLikes.push(currentUser);
   }
 
   await updateDoc(doc(db,"posts",id),{
     likes:newLikes
   });
+};
+
+// 削除
+window.del = async (id)=>{
+  await deleteDoc(doc(db,"posts",id));
 };
 
 // 表示
@@ -243,11 +225,6 @@ onSnapshot(query(collection(db,"posts"),orderBy("time","desc")),snap=>{
     `;
   });
 });
-
-// 🗑 削除
-window.del = async (id)=>{
-  await deleteDoc(doc(db,"posts",id));
-};
 </script>
 
 </body>
