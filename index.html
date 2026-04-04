@@ -5,14 +5,13 @@
 <title>Scratch雑談SNS</title>
 
 <style>
-body { font-family: sans-serif; background:#f9f9f9; margin:20px;}
+body { font-family:sans-serif; background:#f9f9f9; margin:20px;}
 .topbar { display:flex; justify-content:space-between; align-items:center;}
-button { margin-left:5px; }
+button { margin:3px; }
+.box { background:white; padding:10px; margin-top:10px; border-radius:10px;}
 .comment-box { background:white; padding:10px; margin-top:10px; border-radius:10px;}
-.name { font-weight:bold; }
-.time { font-size:12px; color:gray;}
+.avatar { width:30px; height:30px; border-radius:50%; }
 #toast { position:fixed; top:20px; right:20px; background:black; color:white; padding:10px; opacity:0; transition:1s;}
-.avatar { width:30px; height:30px; border-radius:50%; object-fit:cover;}
 </style>
 </head>
 
@@ -21,6 +20,13 @@ button { margin-left:5px; }
 <div class="topbar">
   <h2>雑談所</h2>
   <div id="authArea"></div>
+</div>
+
+<!-- 🔐 ログインフォーム -->
+<div id="authBox" class="box" style="display:none;">
+  <input id="authName" placeholder="ユーザー名"><br><br>
+  <input id="authPass" type="password" placeholder="パスワード"><br><br>
+  <button id="authBtn"></button>
 </div>
 
 <textarea id="message" placeholder="メッセージを入力"></textarea><br>
@@ -32,138 +38,111 @@ button { margin-left:5px; }
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
 import { getFirestore, collection, addDoc, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
-import { 
-  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
-  signOut, onAuthStateChanged, updateProfile
-} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSy...",
-  authDomain: "scratch-sns.firebaseapp.com",
-  projectId: "scratch-sns"
-};
+const app = initializeApp({
+  apiKey:"AIzaSy...",
+  authDomain:"scratch-sns.firebaseapp.com",
+  projectId:"scratch-sns"
+});
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
+const db=getFirestore(app);
+const auth=getAuth(app);
 
-let currentUser = null;
+let mode="login";
+let currentUser=null;
 
-// 🔔 トースト
 function toast(msg){
-  const t = document.getElementById("toast");
-  t.textContent = msg;
-  t.style.opacity = 1;
+  const t=document.getElementById("toast");
+  t.textContent=msg;
+  t.style.opacity=1;
   setTimeout(()=>t.style.opacity=0,1000);
 }
 
 // UI更新
 function updateUI(){
-  const area = document.getElementById("authArea");
+  const area=document.getElementById("authArea");
 
   if(!currentUser){
-    area.innerHTML = `
-      <button onclick="register()">アカウント登録</button>
-      <button onclick="login()">サインイン</button>
+    area.innerHTML=`
+      <button onclick="showRegister()">アカウント登録</button>
+      <button onclick="showLogin()">サインイン</button>
     `;
-  } else {
-    area.innerHTML = `
-      <button onclick="changeName()">アカウント名変更</button>
-      <button onclick="changeIcon()">画像変更</button>
-      <button onclick="resetIcon()">画像リセット</button>
-      ${currentUser.photoURL ? `<img src="${currentUser.photoURL}" class="avatar">` : ""}
+  }else{
+    area.innerHTML=`
+      <button onclick="changeName()">名前変更</button>
       <button onclick="logout()">ログアウト</button>
     `;
   }
 }
 
-// 登録
-window.register = async ()=>{
-  const name = prompt("ユーザー名");
-  const pass = prompt("パスワード");
-
-  if(!name||!pass)return;
-
-  const fakeEmail = name + "@example.com";
-
-  try{
-    const res = await createUserWithEmailAndPassword(auth,fakeEmail,pass);
-    await updateProfile(res.user,{displayName:name});
-    toast("登録成功");
-  }catch{
-    toast("登録失敗");
-  }
+// フォーム表示
+window.showLogin=()=>{
+  mode="login";
+  document.getElementById("authBox").style.display="block";
+  document.getElementById("authBtn").textContent="サインイン";
 };
 
-// ログイン
-window.login = async ()=>{
-  const name = prompt("ユーザー名");
-  const pass = prompt("パスワード");
+window.showRegister=()=>{
+  mode="register";
+  document.getElementById("authBox").style.display="block";
+  document.getElementById("authBtn").textContent="登録";
+};
 
-  const fakeEmail = name + "@example.com";
+// 実行
+document.getElementById("authBtn").onclick=async()=>{
+  const name=document.getElementById("authName").value;
+  const pass=document.getElementById("authPass").value;
+
+  const email=name+"@example.com";
 
   try{
-    await signInWithEmailAndPassword(auth,fakeEmail,pass);
-    toast("ログイン成功");
+    if(mode==="register"){
+      const res=await createUserWithEmailAndPassword(auth,email,pass);
+      await updateProfile(res.user,{displayName:name});
+      toast("登録成功");
+    }else{
+      await signInWithEmailAndPassword(auth,email,pass);
+      toast("ログイン成功");
+    }
   }catch{
     toast("失敗");
   }
 };
 
 // ログアウト
-window.logout = async ()=>{
-  await signOut(auth);
-  toast("ログアウト");
-};
+window.logout=()=>signOut(auth);
 
 // 名前変更
-window.changeName = async ()=>{
-  const name = prompt("新しい名前");
-  if(!name)return;
-  await updateProfile(auth.currentUser,{displayName:name});
-  toast("変更した");
+window.changeName=async()=>{
+  const n=prompt("新しい名前");
+  if(!n)return;
+  await updateProfile(auth.currentUser,{displayName:n});
+  toast("変更");
 };
 
-// アイコン変更
-window.changeIcon = ()=>{
-  const url = prompt("画像URLを入れて");
-  if(!url)return;
-  updateProfile(auth.currentUser,{photoURL:url});
-  toast("画像変更");
-};
-
-// アイコン削除
-window.resetIcon = ()=>{
-  updateProfile(auth.currentUser,{photoURL:null});
-  toast("削除");
-};
-
-// ログイン状態監視
-onAuthStateChanged(auth,user=>{
-  currentUser = user;
+// 状態監視
+onAuthStateChanged(auth,u=>{
+  currentUser=u;
   updateUI();
 });
 
 // 投稿
-window.post = async ()=>{
-  const msg = document.getElementById("message").value;
-
+window.post=async()=>{
+  const msg=document.getElementById("message").value;
   if(!currentUser){ toast("ログインして"); return;}
   if(!msg){ toast("入力して"); return;}
 
   await addDoc(collection(db,"posts"),{
-    name: currentUser.displayName || "名無し",
-    icon: currentUser.photoURL || "",
-    message: msg,
-    time: Date.now()
+    name:currentUser.displayName,
+    message:msg,
+    time:Date.now()
   });
 
   document.getElementById("message").value="";
 };
 
 // 表示
-function fmt(t){return new Date(t).toLocaleString();}
-
 onSnapshot(query(collection(db,"posts"),orderBy("time","desc")),snap=>{
   const div=document.getElementById("posts");
   div.innerHTML="";
@@ -171,10 +150,8 @@ onSnapshot(query(collection(db,"posts"),orderBy("time","desc")),snap=>{
     const data=d.data();
     div.innerHTML+=`
       <div class="comment-box">
-        ${data.icon?`<img src="${data.icon}" class="avatar">`:""}
-        <div class="name">${data.name}</div>
+        <div><b>${data.name}</b></div>
         <div>${data.message}</div>
-        <div class="time">${fmt(data.time)}</div>
       </div>
     `;
   });
