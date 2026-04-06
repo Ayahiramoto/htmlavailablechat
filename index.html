@@ -13,7 +13,6 @@ body {
   background:#f7f7f7;
 }
 
-/* 上バー（Scratch風） */
 .topbar {
   background:#ffab19;
   padding:10px 15px;
@@ -23,10 +22,7 @@ body {
   box-shadow:0 2px 5px rgba(0,0,0,0.2);
 }
 
-/* ボタン共通 */
-button {
-  cursor:pointer;
-}
+button { cursor:pointer; }
 
 /* ログインボックス */
 #loginBox {
@@ -66,12 +62,10 @@ button {
   margin:20px auto;
 }
 
-/* 投稿ボックス */
 .post-box {
   background:white;
   padding:10px;
   border-radius:10px;
-  box-shadow:0 1px 4px rgba(0,0,0,0.1);
 }
 
 textarea {
@@ -88,7 +82,6 @@ textarea {
   padding:12px;
   margin-top:10px;
   border-radius:10px;
-  box-shadow:0 1px 4px rgba(0,0,0,0.1);
 }
 
 .time {
@@ -99,14 +92,16 @@ textarea {
 /* 通知 */
 #toast {
   position:fixed;
-  top:80px;
+  top:100px;
   left:50%;
   transform:translateX(-50%);
   background:black;
   color:white;
-  padding:10px;
+  padding:12px 20px;
+  border-radius:8px;
   opacity:0;
-  transition:1s;
+  transition:0.5s;
+  z-index:999;
 }
 
 /* 管理者パネル */
@@ -122,7 +117,6 @@ textarea {
   width:300px;
   max-height:300px;
   overflow:auto;
-  box-shadow:0 2px 8px rgba(0,0,0,0.2);
 }
 </style>
 </head>
@@ -141,14 +135,12 @@ textarea {
   </div>
 </div>
 
-<!-- ログイン -->
 <div id="loginBox">
   <input id="username" placeholder="ユーザー名">
   <input id="password" type="password" placeholder="パスワード">
   <button onclick="login()">OK</button>
 </div>
 
-<!-- 管理者 -->
 <div id="adminPanel">
   <b>管理者パネル</b>
   <div id="userList"></div>
@@ -175,7 +167,7 @@ import {
   onSnapshot, orderBy, updateDoc, doc, deleteDoc, getDoc
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
-/* 🔥ここを自分のに変更 */
+/* 🔥 Firebaseここ入れる */
 const firebaseConfig = {
   apiKey: "AIzaSyCAX28P2QGaNNp6xytLsE9hhcVher9TgPY",
   authDomain: "scratch-sns.firebaseapp.com",
@@ -207,23 +199,52 @@ window.toggleLogin = ()=>{
 };
 
 /* 通知 */
-function toast(msg){
-  toast.innerText = msg;
+function toastMsg(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.style.opacity = 1;
+  setTimeout(()=>{ t.style.opacity = 0; },1500);
 }
 
 /* ログイン */
 window.login = async ()=>{
-  const name=username.value;
-  const pass=password.value;
+  const name = username.value;
+  const pass = password.value;
 
-  const q=query(collection(db,"users"),where("username","==",name));
-  const snap=await getDocs(q);
-
-  if(snap.empty){
-    await addDoc(collection(db,"users"),{username:name,password:pass});
+  if(!name || !pass){
+    toastMsg("入力してください。");
+    return;
   }
 
-  currentUser=name;
+  const q = query(collection(db,"users"), where("username","==",name));
+  const snap = await getDocs(q);
+
+  if(snap.empty){
+    await addDoc(collection(db,"users"),{
+      username:name,
+      password:pass
+    });
+    toastMsg("登録しました。");
+    currentUser = name;
+
+  } else {
+    let correct = false;
+
+    snap.forEach(d=>{
+      if(d.data().password === pass){
+        correct = true;
+      }
+    });
+
+    if(!correct){
+      toastMsg("パスワードが違います。");
+      return;
+    }
+
+    toastMsg("ログインしました。");
+    currentUser = name;
+  }
+
   localStorage.setItem("username",name);
   updateUI();
 };
@@ -236,8 +257,15 @@ window.logout=()=>{
 
 /* 投稿 */
 window.post=async()=>{
-  if(!currentUser){ alert("サインインしてください"); return; }
-  if(!msg.value){ return; }
+  if(!currentUser){
+    toastMsg("サインインしてください。");
+    return;
+  }
+
+  if(!msg.value){
+    toastMsg("文字を入力してください。");
+    return;
+  }
 
   await addDoc(collection(db,"posts"),{
     name:currentUser,
@@ -258,6 +286,7 @@ function formatTime(t){
 window.like=async(id)=>{
   const ref=doc(db,"posts",id);
   const snap=await getDoc(ref);
+
   let likes=snap.data().likes||[];
 
   if(likes.includes(currentUser)){
@@ -296,6 +325,7 @@ window.openAdmin=async()=>{
 /* BAN */
 window.banUser=async(name)=>{
   await addDoc(collection(db,"bans"),{username:name});
+  toastMsg(name+"をBANしました");
 };
 
 /* 表示 */
@@ -316,7 +346,7 @@ onSnapshot(query(collection(db,"posts"),orderBy("time","desc")),snap=>{
         👍 ${data.likes?.length||0}
         <button onclick="like('${id}')">${liked?"いいね解除":"いいね"}</button>
 
-        ${(currentUser===data.name || currentUser===adminUser)
+        ${(currentUser===data.name || currentUser==="Hiromu0623")
           ? `<button onclick="del('${id}')">削除</button>`:""}
       </div>
     `;
