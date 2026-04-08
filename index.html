@@ -160,199 +160,66 @@ textarea {
 
 <div id="toast"></div>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-import {
-  getFirestore, collection, addDoc, query, where, getDocs,
-  onSnapshot, orderBy, updateDoc, doc, deleteDoc, getDoc
-} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
-
-/* 🔥 Firebaseここ入れる */
-const firebaseConfig = {
-  apiKey: "AIzaSyCAX28P2QGaNNp6xytLsE9hhcVher9TgPY",
-  authDomain: "scratch-sns.firebaseapp.com",
-  projectId: "scratch-sns",
-  storageBucket: "scratch-sns.firebasestorage.app",
-  messagingSenderId: "414045447005",
-  appId: "1:414045447005:web:f4710d0a90a43745fcbeb4"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-let currentUser = localStorage.getItem("username");
-const adminUser = "Hiromu0623";
-
-/* UI */
-function updateUI(){
-  userText.textContent = currentUser || "";
-  loginBtn.style.display = currentUser ? "none" : "inline";
-  logoutBtn.style.display = currentUser ? "inline" : "none";
-  adminBtn.style.display = currentUser===adminUser ? "inline" : "none";
-  loginBox.style.display = "none";
-}
-updateUI();
-
-/* ログイン表示 */
-window.toggleLogin = ()=>{
-  loginBox.style.display = loginBox.style.display==="none"?"block":"none";
-};
-
-/* 通知 */
-function toastMsg(msg){
-  const t = document.getElementById("toast");
-  t.textContent = msg;
-  t.style.opacity = 1;
-  setTimeout(()=>{ t.style.opacity = 0; },1500);
-}
-
-/* ログイン */
-window.login = async ()=>{
-  const name = username.value;
-  const pass = password.value;
-
-  if(!name || !pass){
-    toastMsg("入力してください。");
-    return;
-  }
-
-  const q = query(collection(db,"users"), where("username","==",name));
-  const snap = await getDocs(q);
-
-  if(snap.empty){
-    await addDoc(collection(db,"users"),{
-      username:name,
-      password:pass
-    });
-    toastMsg("登録しました。");
-    currentUser = name;
-
-  } else {
-    let correct = false;
-
-    snap.forEach(d=>{
-      if(d.data().password === pass){
-        correct = true;
-      }
-    });
-
-    if(!correct){
-      toastMsg("パスワードが違います。");
-      return;
-    }
-
-    toastMsg("ログインしました。");
-    currentUser = name;
-  }
-
-  localStorage.setItem("username",name);
-  updateUI();
-};
-
-/* ログアウト */
-window.logout=()=>{
-  localStorage.removeItem("username");
-  location.reload();
-};
+<script>
+const url = "https://evtrxvuhecvhmyvcuvrc.supabase.co";
+const KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2dHJ4dnVoZWN2aG15dmN1dnJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzY0NjcsImV4cCI6MjA5MTIxMjQ2N30.SaHGvHObwAe_2uAvMXP5rJH-eHgTemsaJ4wIBqkhjXQ";
 
 /* 投稿 */
-window.post=async()=>{
-  if(!currentUser){
-    toastMsg("サインインしてください。");
+async function postMessage(){
+  const name = document.getElementById("name").value;
+  const message = document.getElementById("message").value;
+
+  if(!name || !message){
+    alert("入力しろ");
     return;
   }
 
-  if(!msg.value){
-    toastMsg("文字を入力してください。");
-    return;
-  }
-
-  await addDoc(collection(db,"posts"),{
-    name:currentUser,
-    message:msg.value,
-    time:Date.now(),
-    likes:[]
+  await fetch(`${url}/rest/v1/posts`,{
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      apikey:KEY,
+      Authorization:`Bearer ${KEY}`
+    },
+    body:JSON.stringify({
+      name:name,
+      message:message,
+      created_at:new Date().toISOString()
+    })
   });
 
-  msg.value="";
-};
-
-/* 時間 */
-function formatTime(t){
-  return new Date(t).toLocaleString();
+  document.getElementById("message").value="";
+  loadPosts();
 }
 
-/* いいね */
-window.like=async(id)=>{
-  const ref=doc(db,"posts",id);
-  const snap=await getDoc(ref);
+/* 投稿取得 */
+async function loadPosts(){
+  const res = await fetch(
+    `${url}/rest/v1/posts?select=*&order=created_at.desc`,
+    {
+      headers:{
+        apikey:KEY,
+        Authorization:`Bearer ${KEY}`
+      }
+    }
+  );
 
-  let likes=snap.data().likes||[];
+  const data = await res.json();
 
-  if(likes.includes(currentUser)){
-    likes=likes.filter(u=>u!==currentUser);
-  }else{
-    likes.push(currentUser);
-  }
+  const posts = document.getElementById("posts");
+  posts.innerHTML = "";
 
-  await updateDoc(ref,{likes});
-};
-
-/* 削除 */
-window.del=async(id)=>{
-  await deleteDoc(doc(db,"posts",id));
-};
-
-/* 管理者 */
-window.openAdmin=async()=>{
-  adminPanel.style.display = adminPanel.style.display==="none"?"block":"none";
-  userList.innerHTML="";
-
-  const snap=await getDocs(collection(db,"users"));
-
-  snap.forEach(d=>{
-    const name=d.data().username;
-
-    userList.innerHTML+=`
-      <div>
-        ${name}
-        <button onclick="banUser('${name}')">BAN</button>
-      </div>
-    `;
-  });
-};
-
-/* BAN */
-window.banUser=async(name)=>{
-  await addDoc(collection(db,"bans"),{username:name});
-  toastMsg(name+"をBANしました");
-};
-
-/* 表示 */
-onSnapshot(query(collection(db,"posts"),orderBy("time","desc")),snap=>{
-  posts.innerHTML="";
-
-  snap.forEach(d=>{
-    const data=d.data();
-    const id=d.id;
-    const liked=data.likes?.includes(currentUser);
-
-    posts.innerHTML+=`
+  data.forEach(p=>{
+    posts.innerHTML += `
       <div class="comment">
-        <b>${data.name}</b>
-        <div class="time">${formatTime(data.time)}</div>
-        ${data.message}<br>
-
-        👍 ${data.likes?.length||0}
-        <button onclick="like('${id}')">${liked?"いいね解除":"いいね"}</button>
-
-        ${(currentUser===data.name || currentUser==="Hiromu0623")
-          ? `<button onclick="del('${id}')">削除</button>`:""}
+        <b>${p.name}</b><br>
+        ${p.message}
       </div>
     `;
   });
-});
-</script>
+}
 
+document.addEventListener("DOMContentLoaded",loadPosts);
+</script>
 </body>
 </html>
