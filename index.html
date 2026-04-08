@@ -135,11 +135,6 @@ textarea {
   </div>
 </div>
 
-<div id="loginBox">
-  <input id="username" placeholder="ユーザー名">
-  <input id="password" type="password" placeholder="パスワード">
-  <button onclick="login()">OK（押しても多分何も起こりません）</button>
-</div>
 
 <div id="adminPanel">
   <b>管理者パネル</b>
@@ -149,7 +144,8 @@ textarea {
 <div class="container">
 
 <div class="post-box">
-<textarea id="message" maxlength="150" placeholder="メッセージを入力"></textarea>
+  <input type="text" id="name" placeholder="名前">
+  <textarea id="message" maxlength="150" placeholder="メッセージを入力"></textarea>
 <br>
 <button onclick="postMessage()">送信</button>
 </div>
